@@ -124,9 +124,33 @@ ngx_http_google_inject_subs(ngx_conf_t * cf)
                                          "*"))
       break;
     
+    // Redirect www.gststic.com to www.gstatic.cn
+    if (ngx_http_google_inject_subs_args(cf,
+                                         "subs_filter", 3,
+                                         "www\\.gstatic\\.com",
+                                         "www.gstatic.cn",
+                                         "igr"))
+      break;
+    // Redirect the other *.gststic.com to reserve proxy server
     if (ngx_http_google_inject_subs_args(cf,
                                          "subs_filter", 3,
                                          "([0-9A-Za-z.-]+\\.gstatic\\.com)",
+                                         "$google_host/!$1",
+                                         "igr"))
+      break;
+    // Redirect www.google.com/xjs/_/* to www.google.cn/xjs/_/*
+    // Using ' is because the context is in js form
+    if (ngx_http_google_inject_subs_args(cf,
+                                         "subs_filter", 3,
+                                         "'(\\/xjs\\/_\\/)",
+                                         "'//www.google.cn$1",
+                                         "igr"))
+      break;
+    
+    // Add id.google.com proxy
+    if (ngx_http_google_inject_subs_args(cf,
+                                         "subs_filter", 3,
+                                         "((id)\\.google\\.com)",
                                          "$google_host/!$1",
                                          "igr"))
       break;
