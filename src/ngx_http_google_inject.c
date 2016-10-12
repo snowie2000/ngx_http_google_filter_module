@@ -162,9 +162,10 @@ ngx_http_google_inject_subs(ngx_conf_t * cf)
                                          "igr"))
       break;
     
+    // Bypass all url startwith (www)|(image).google.cn*
     if (ngx_http_google_inject_subs_args(cf,
                                          "subs_filter", 3,
-                                         "((www)|(images))\\.google\\.[0-9a-z.]+",
+                                         "((www)|(images))\\.google\\.(?!cn)[0-9a-z.]+",
                                          "$google_host",
                                          "igr"))
       break;
