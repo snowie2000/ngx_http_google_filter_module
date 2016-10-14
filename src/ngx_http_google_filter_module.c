@@ -282,7 +282,6 @@ ngx_http_google_filter_create_loc_conf(ngx_conf_t * cf)
   conf->ssloff        = NGX_CONF_UNSET_PTR;
   conf->auth_enable   = NGX_CONF_UNSET;
   conf->auth_password = NGX_CONF_UNSET_PTR;
-  conf->auth_salt     = NGX_CONF_UNSET;
   
   return conf;
 }
