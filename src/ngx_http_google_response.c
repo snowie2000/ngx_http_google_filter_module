@@ -296,7 +296,14 @@ ngx_http_google_response_body_filter(ngx_http_request_t * r, ngx_chain_t * in)
   ngx_http_google_ctx_t * ctx;
   ctx = ngx_http_get_module_ctx(r, ngx_http_google_filter_module);
   
-  if (!ctx->robots)      return gmcf->next_body_filter(r, in);
+  if (!ctx->robots) {
+	  if (ctx->authorized)
+		return gmcf->next_body_filter(r, in);
+	  // TODO
+	  /*
+	  Return auth page, after user set cookie, refresh page
+	  */
+  }
   if (glcf->robots == 1) return gmcf->next_body_filter(r, in);
   
   ngx_chain_t out;

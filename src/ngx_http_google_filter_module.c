@@ -96,6 +96,30 @@ ngx_http_google_filter_commands[] = {
     offsetof(ngx_http_google_loc_conf_t, robots),
     NULL
   },
+  {
+	  ngx_string("google_auth"),
+	  NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+	  ngx_conf_set_flag_slot,
+	  NGX_HTTP_LOC_CONF_OFFSET,
+	  offsetof(ngx_http_google_loc_conf_t, auth_enable),
+	  NULL
+  },
+  {
+	  ngx_string("google_auth_password"),
+	  NGX_HTTP_LOC_CONF | NGX_CONF_1MORE,
+	  ngx_conf_set_str_array_slot,
+	  NGX_HTTP_LOC_CONF_OFFSET,
+	  offsetof(ngx_http_google_loc_conf_t, auth_password),
+	  NULL
+  },
+  {
+	  ngx_string("google_auth_salt"),
+	  NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+	  ngx_conf_set_str_slot,
+	  NGX_HTTP_LOC_CONF_OFFSET,
+	  offsetof(ngx_http_google_loc_conf_t, auth_salt),
+	  NULL
+  },
   ngx_null_command
 };
 
@@ -252,10 +276,13 @@ ngx_http_google_filter_create_loc_conf(ngx_conf_t * cf)
   conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_google_loc_conf_t));
   if (conf == NULL) return NULL;
   
-  conf->robots  = NGX_CONF_UNSET;
-  conf->enable  = NGX_CONF_UNSET;
-  conf->scholar = NGX_CONF_UNSET;
-  conf->ssloff  = NGX_CONF_UNSET_PTR;
+  conf->robots        = NGX_CONF_UNSET;
+  conf->enable        = NGX_CONF_UNSET;
+  conf->scholar       = NGX_CONF_UNSET;
+  conf->ssloff        = NGX_CONF_UNSET_PTR;
+  conf->auth_enable   = NGX_CONF_UNSET;
+  conf->auth_password = NGX_CONF_UNSET_PTR;
+  conf->auth_salt     = NGX_CONF_UNSET;
   
   return conf;
 }
@@ -267,11 +294,14 @@ ngx_http_google_filter_merge_loc_conf(ngx_conf_t * cf, void * parent,
   ngx_http_google_loc_conf_t * prev = parent;
   ngx_http_google_loc_conf_t * conf = child;
   
-  ngx_conf_merge_value    (conf->robots,   prev->robots,   NGX_CONF_UNSET);
-  ngx_conf_merge_value    (conf->enable,   prev->enable,   NGX_CONF_UNSET);
-  ngx_conf_merge_value    (conf->scholar,  prev->scholar,  NGX_CONF_UNSET);
-  ngx_conf_merge_ptr_value(conf->ssloff,   prev->ssloff,   NGX_CONF_UNSET_PTR);
-  ngx_conf_merge_str_value(conf->language, prev->language, "zh-CN");
+  ngx_conf_merge_value    (conf->robots,        prev->robots,        NGX_CONF_UNSET);
+  ngx_conf_merge_value    (conf->enable,        prev->enable,        NGX_CONF_UNSET);
+  ngx_conf_merge_value    (conf->scholar,       prev->scholar,       NGX_CONF_UNSET);
+  ngx_conf_merge_ptr_value(conf->ssloff,        prev->ssloff,        NGX_CONF_UNSET_PTR);
+  ngx_conf_merge_str_value(conf->language,      prev->language,      "zh-CN");
+  ngx_conf_merge_value(conf->auth_enable,       prev->auth_enable,   NGX_CONF_UNSET);
+  ngx_conf_merge_str_value(conf->auth_salt,     prev->auth_salt,     NGX_CONF_UNSET);
+  ngx_conf_merge_ptr_value(conf->auth_password, prev->auth_password, NGX_CONF_UNSET_PTR);
   
   return NGX_CONF_OK;
 }

@@ -60,6 +60,14 @@ ngx_http_google_create_ctx(ngx_http_request_t * r)
   if (!ctx->lang->len) {
     ngx_str_set(ctx->lang, "zh-CN");
   }
+
+  if(!glcf->auth_enable)
+	ctx->authorized = true;
+  // TODO
+  /*
+  Check cookie and set ctx->authorized
+  */
+  ctx->authorized = true;
   
   ctx->robots = (ctx->uri->len == 11 &&
                  !ngx_strncmp(ctx->uri->data, "/robots.txt", 11));

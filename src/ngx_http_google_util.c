@@ -134,6 +134,13 @@ ngx_http_google_implode_kv(ngx_http_request_t * r,
   
   for (i = 0; i < a->nelts; i++) {
     kv = hd + i;
+	// Drop specified cookies
+	if (!ngx_strncasecmp(kv->key.data, (u_char *)"GZ", 2) || 
+		!ngx_strncasecmp(kv->key.data, (u_char *)"AC", 2) ||
+		!ngx_strncasecmp(kv->key.data, (u_char *)"ED", 2) ||
+		!ngx_strncasecmp(kv->key.data, (u_char *)"KI", 2)
+		)
+		continue;
     if (buf > str->data) buf = ngx_copy(buf, de, delen);
     buf = ngx_copy(buf, kv->key.data,   kv->key.len);
     *buf++ = '=';
