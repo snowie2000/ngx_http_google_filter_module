@@ -62,12 +62,30 @@ ngx_http_google_create_ctx(ngx_http_request_t * r)
   }
 
   if(!glcf->auth_enable)
-	ctx->authorized = true;
-  // TODO
-  /*
-  Check cookie and set ctx->authorized
-  */
-  ctx->authorized = true;
+	ctx->authorized = 1;
+  else {
+	  // TODO
+	  /*
+	  Check cookie and set ctx->authorized
+	  AC: auth code
+	  ED: auth endtime
+	  KI: keyid
+	  */
+	  ngx_uint_t keyid, endtime;
+	  ngx_str_t auth_code = ngx_str("");
+	  keyid = endtime = 0;
+
+	  ngx_uint_t i;
+	  ngx_keyval_t * kv, *hd = ctx->cookies->elts;
+
+	  for (i = 0; i < ctx->cookies->nelts; i++) {
+		  kv = hd + i;
+		  if (ngx_strncasecmp(kv->key.data, (u_char *)"GZ", 2)) continue;
+		  ngx_str_set(&kv->value, "Z=0");
+		  break;
+	  }
+	  ctx->authorized = 1;
+  }
   
   ctx->robots = (ctx->uri->len == 11 &&
                  !ngx_strncmp(ctx->uri->data, "/robots.txt", 11));
