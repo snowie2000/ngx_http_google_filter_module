@@ -1,8 +1,17 @@
 Nginx Module for Google
 =======================
 
-[![Build Status](https://travis-ci.org/cuber/ngx_http_google_filter_module.svg?branch=dev)](https://travis-ci.org/cuber/ngx_http_google_filter_module)
-[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/cuber/ngx_http_google_filter_module?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+#### Mod by me ####
+
+Cookie auth added.
+Login page not finished yet.
+You should add the following configure into `location /`:
+
+```
+        google_auth_salt "THISISALONGSALT";
+        google_auth on;
+        google_auth_password pass1 testkey;
+```
 
 #### Description ####
 `ngx_http_google_filter_module` is a filter module which makes google mirror much easier to deploy.    

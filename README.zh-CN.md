@@ -1,8 +1,16 @@
 Nginx Google 扩展
 =================
 
-[![Build Status](https://travis-ci.org/cuber/ngx_http_google_filter_module.svg?branch=dev)](https://travis-ci.org/cuber/ngx_http_google_filter_module)
-[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/cuber/ngx_http_google_filter_module?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+#### 改动 ####
+添加Cookie验证
+登陆页面尚未完工...
+在配置文件`location /`部分添加以下配置以启用验证功能:
+
+```
+        google_auth_salt "THISISALONGSALT";
+        google_auth on;
+        google_auth_password pass1 testkey;
+```
 
 #### 扯两句 ####
 `wen.lu` 一路走到现在, 离不开大家的支持!
