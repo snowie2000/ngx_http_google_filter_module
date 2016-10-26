@@ -3,7 +3,7 @@
 //  nginx
 //
 //  Created by Cube on 14/12/15.
-//  Copyright (c) 2014年 Cube. All rights reserved.
+//  Copyright (c) 2014 Cube. All rights reserved.
 //
 
 #include "ngx_http_google_inject.h"

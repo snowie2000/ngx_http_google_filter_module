@@ -3,7 +3,7 @@
 //  nginx
 //
 //  Created by Cube on 14/12/15.
-//  Copyright (c) 2014年 Cube. All rights reserved.
+//  Copyright (c) 2014 Cube. All rights reserved.
 //
 
 #include "ngx_http_google_util.h"
@@ -61,41 +61,77 @@ ngx_http_google_create_ctx(ngx_http_request_t * r)
     ngx_str_set(ctx->lang, "zh-CN");
   }
 
-  if(!glcf->auth_enable)
-	ctx->authorized = 1;
-  else {
-	  // TODO
-	  /*
-	  Check cookie and set ctx->authorized
-	  AC: auth code
-	  ED: auth endtime
-	  KI: keyid
-	  */
-	  ngx_uint_t keyid, endtime;
-	  ngx_str_t auth_code = ngx_str("");
-	  keyid = endtime = 0;
-
-	  ngx_uint_t i;
-	  ngx_keyval_t * kv, *hd = ctx->cookies->elts;
-
-	  for (i = 0; i < ctx->cookies->nelts; i++) {
-		  kv = hd + i;
-		  if (ngx_strncasecmp(kv->key.data, (u_char *)"GZ", 2)) continue;
-		  ngx_str_set(&kv->value, "Z=0");
-		  break;
-	  }
-	  ctx->authorized = 1;
-  }
-  
+  // robots.txt
   ctx->robots = (ctx->uri->len == 11 &&
-                 !ngx_strncmp(ctx->uri->data, "/robots.txt", 11));
-  
+	  !ngx_strncmp(ctx->uri->data, "/robots.txt", 11));
+  if (ctx->robots)
+  {
+	  ctx->authorized = 1;
+	  return ctx;
+  }
+
 #if (NGX_HTTP_SSL)
   ngx_http_ssl_srv_conf_t * sscf;
   sscf = ngx_http_get_module_srv_conf(r, ngx_http_ssl_module);
   if (sscf->enable || r->http_connection->addr_conf->ssl) ctx->ssl = 1;
 #endif
-  
+
+  // auth
+  if(!glcf->auth_enable)
+	ctx->authorized = 1;
+  else {
+	  ngx_http_google_debug(r->pool, "auth enabled.\n");
+	  ngx_int_t keyid = -1;
+	  ngx_uint_t endtime = 0;
+	  ngx_str_t auth_code;
+	  ngx_str_set(&auth_code, (u_char *)"");
+
+	  // parse cookie
+	  if (r->headers_in.cookies.nelts) {
+		  ngx_table_elt_t ** ck = r->headers_in.cookies.elts;
+		  ctx->cookies = ngx_http_google_explode_kv(r, &(*ck)->value, ";");
+	  }
+	  else {
+		  ctx->cookies = ngx_array_create(r->pool, 4, sizeof(ngx_keyval_t));
+	  }
+	  if (!ctx->cookies) return NULL;
+
+	  // get cookie
+	  ngx_uint_t i;
+	  ngx_keyval_t * kv, *hd = ctx->cookies->elts;
+	  for (i = 0; i < ctx->cookies->nelts; i++) {
+		  kv = hd + i;
+		  if (kv->key.len > 0) {
+			  if (!ngx_strncasecmp(kv->key.data, (u_char *)"GZ", 2))
+			  {
+				  ngx_str_set(&kv->value, "Z=0");
+			  }
+			  else if (!ngx_strncasecmp(kv->key.data, (u_char *)"AC", 2))
+			  {
+				  auth_code = kv->value;
+			  }
+			  else if (!ngx_strncasecmp(kv->key.data, (u_char *)"ED", 2))
+			  {
+				  endtime = ngx_atoi(kv->value.data, kv->value.len);
+			  }
+			  else if (!ngx_strncasecmp(kv->key.data, (u_char *)"KI", 2))
+			  {
+				  keyid = ngx_atoi(kv->value.data, kv->value.len);
+			  }
+		  }
+	  }
+	  ngx_uint_t auth_result = ngx_http_google_validate_user(r, keyid, endtime, &auth_code);
+	  ngx_http_google_debug(r->pool, "keyid:%d, endtime: %d, auth_code: %V\n", keyid, endtime, &auth_code);
+	  if (!auth_result) 
+	  {
+		  ctx->authorized = 1;
+	  }
+	  else
+	  {
+		  ctx->authorized = 0;
+		  ngx_http_google_debug(r->pool, "Auth failed.\n");
+	  }
+  }
   return ctx;
 }
 
@@ -346,12 +382,13 @@ ngx_http_google_request_parser(ngx_http_request_t    * r,
   }
   if (!ctx->args) return NGX_ERROR;
   
-  // parse cookies
-  if (r->headers_in.cookies.nelts) {
-    ngx_table_elt_t ** ck = r->headers_in.cookies.elts;
-    ctx->cookies = ngx_http_google_explode_kv(r, &(*ck)->value, ";");
-  } else {
-    ctx->cookies = ngx_array_create(r->pool, 4, sizeof(ngx_keyval_t));
+  if (!ctx->cookies) {
+	  if (r->headers_in.cookies.nelts) {
+	    ngx_table_elt_t ** ck = r->headers_in.cookies.elts;
+	    ctx->cookies = ngx_http_google_explode_kv(r, &(*ck)->value, ";");
+	  } else {
+	    ctx->cookies = ngx_array_create(r->pool, 4, sizeof(ngx_keyval_t));
+	  }
   }
   if (!ctx->cookies) return NGX_ERROR;
   

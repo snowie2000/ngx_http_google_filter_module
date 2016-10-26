@@ -3,7 +3,7 @@
 //  nginx
 //
 //  Created by Cube on 14/12/15.
-//  Copyright (c) 2014年 Cube. All rights reserved.
+//  Copyright (c) 2014 Cube. All rights reserved.
 //
 
 #include "ngx_http_google_util.h"
@@ -296,27 +296,35 @@ ngx_http_google_response_body_filter(ngx_http_request_t * r, ngx_chain_t * in)
   ngx_http_google_ctx_t * ctx;
   ctx = ngx_http_get_module_ctx(r, ngx_http_google_filter_module);
   
-  if (!ctx->robots) {
-	  if (ctx->authorized)
-		return gmcf->next_body_filter(r, in);
-	  // TODO
-	  /*
-	  Return auth page, after user set cookie, refresh page
-	  */
+  if (ctx->robots) {
+	  if (glcf->robots == 1) return gmcf->next_body_filter(r, in);
+
+	  ngx_chain_t out;
+	  ngx_memzero(&out, sizeof(ngx_chain_t));
+
+	  ngx_str_t text;
+	  ngx_str_set(&text, "User-agent: *" CRLF
+		  "Disallow: /"   CRLF);
+
+	  out.buf = ngx_create_temp_buf(r->pool, text.len);
+	  if (!out.buf) return NGX_ERROR;
+	  out.buf->last_buf = 1;
+
+	  out.buf->last = memcpy(out.buf->last, text.data, text.len * sizeof(char));
+	  return gmcf->next_body_filter(r, &out);
   }
-  if (glcf->robots == 1) return gmcf->next_body_filter(r, in);
-  
+  if (ctx->authorized)
+	  return gmcf->next_body_filter(r, in);
   ngx_chain_t out;
   ngx_memzero(&out, sizeof(ngx_chain_t));
-  
+
   ngx_str_t text;
-  ngx_str_set(&text, "User-agent: *" CRLF
-                     "Disallow: /"   CRLF);
-  
+  ngx_str_set(&text, LOGINPAGE);
+
   out.buf = ngx_create_temp_buf(r->pool, text.len);
   if (!out.buf) return NGX_ERROR;
   out.buf->last_buf = 1;
-  
+
   out.buf->last = ngx_copy(out.buf->last, text.data, text.len);
   return gmcf->next_body_filter(r, &out);
 }
