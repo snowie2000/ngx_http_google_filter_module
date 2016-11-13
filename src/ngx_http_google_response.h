@@ -99,5 +99,6 @@ ngx_http_google_response_header_set_login_cookie(ngx_http_request_t *, ngx_http_
 "        document.location.href=\"/\";\n" \
 "    });\n" \
 "</script>\n" \
-"</html>\n" \
+"</html>\n"
+
 #endif /* defined(_NGX_HTTP_GOOGLE_RESPONSE_H) */
