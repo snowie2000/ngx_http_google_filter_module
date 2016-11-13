@@ -91,10 +91,11 @@ ngx_http_google_response_header_set_login_cookie(ngx_http_request_t *, ngx_http_
 "            time += 30*24*3600;\n" \
 "        else\n" \
 "            time += 3650*24*3600;\n" \
-"        document.cookie = \"PW=; expires=Thu, 01 Jan 1970 00:00:00 UTC\";\n" \
-"        document.cookie = \"ED=; expires=Thu, 01 Jan 1970 00:00:00 UTC\";\n" \
-"        document.cookie = \"PW=\" + password + \"; expires=Fri, 01-Jan-2020 00:00:00 GMT; path=/\";\n" \
-"        document.cookie = \"ED=\" + time.toString() + \"; expires=Fri, 01-Jan-2020 00:00:00 GMT; path=/\";\n" \
+"        var setdomain = '.' + window.location.hostname;\n" \
+"        document.cookie = \"PW=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=\" + setdomain + \";\";\n" \
+"        document.cookie = \"ED=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=\" + setdomain + \";\";\n" \
+"        document.cookie = \"PW=\" + password + \"; expires=Fri, 01-Jan-2020 00:00:00 GMT; path=/; domain=\" + setdomain + \";\";\n" \
+"        document.cookie = \"ED=\" + time.toString() + \"; expires=Fri, 01-Jan-2020 00:00:00 GMT; path=/; domain=\" + setdomain + \";\";\n" \
 "        document.location.href=\"/\";\n" \
 "    });\n" \
 "</script>\n" \
