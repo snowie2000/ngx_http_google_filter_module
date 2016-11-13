@@ -52,7 +52,7 @@ ngx_http_google_create_ctx(ngx_http_request_t * r)
   ctx->domain->data = ngx_pcalloc(r->pool, ctx->domain->len);
   if (!ctx->domain->data) return NULL;
   
-  ngx_snprintf(ctx->domain->data, ctx->domain->len, ".%V", &domain);
+  ngx_snprintf(ctx->domain->data, ctx->domain->len, "%V", &domain);
   
   if (ngx_inet_addr(domain.data, domain.len) != INADDR_NONE) {
     ctx->domain->data++;
