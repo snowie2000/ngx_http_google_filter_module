@@ -103,9 +103,8 @@ ngx_http_google_response_header_set_cookie_exempt(ngx_http_request_t    * r,
         return NGX_OK;
       }
     }
-    
     if (!ngx_strncasecmp(kv->key.data, (u_char *)"expires", 7)) {
-      ngx_str_set(&kv->value, "Fri, 01-Jan-2017 00:00:00 GMT");
+      ngx_str_set(&kv->value, "Fri, 01-Jan-2020 00:00:00 GMT");
     }
   }
   
@@ -119,6 +118,55 @@ ngx_http_google_response_header_sort_cookie_conf(const void * a, const void * b)
   if (kva->key.len < kvb->key.len) return  1;
   if (kva->key.len > kvb->key.len) return -1;
   return 0;
+}
+
+ngx_int_t
+ngx_http_google_response_header_set_login_cookie(ngx_http_request_t * r, ngx_http_google_ctx_t * ctx)
+{
+	ngx_uint_t i;
+	ngx_table_elt_t * set_cookie;
+	ngx_keyval_t * kv, *hd = ctx->cookies_set->elts;
+	for (i = 0; i < ctx->cookies_set->nelts; i++) {
+		kv = hd + i;
+		set_cookie = ngx_list_push(&r->headers_out.headers);
+		if (!set_cookie) {
+			return NGX_ERROR;
+		}
+		set_cookie->hash = 1;
+		ngx_str_set(&set_cookie->key, "Set-Cookie");
+		ngx_array_t * kvs;
+		ngx_keyval_t * ikv;
+		kvs = ngx_array_create(r->pool, 4, sizeof(ngx_keyval_t));
+		if (!kvs) return NGX_ERROR;
+		// push cookie parts
+		ikv = ngx_array_push(kvs);
+		if (!ikv) return NGX_ERROR;
+
+		ikv->key = kv->key; ikv->value = kv->value;
+		ikv = ngx_array_push(kvs);
+		if (!ikv) return NGX_ERROR;
+		ngx_str_set(&ikv->key, "expires");
+		if (kv->key.len == 2 && !ngx_strncasecmp(kv->key.data, (u_char *)"PW", 2))
+		{
+			ngx_str_set(&ikv->value, "Mon, 01-Jan-1990 00:00:00 GMT");
+		}
+		else 
+		{
+			ngx_str_set(&ikv->value, "Fri, 01-Jan-2020 00:00:00 GMT");
+		}
+		ikv = ngx_array_push(kvs);
+		if (!ikv) return NGX_ERROR;
+		ngx_str_set(&ikv->key, "path");
+		ngx_str_set(&ikv->value, "/");
+
+		ikv = ngx_array_push(kvs);
+		if (!ikv) return NGX_ERROR;
+		ngx_str_set(&ikv->key, "domain");
+		ikv->value = *ctx->domain;
+
+		set_cookie->value = *ngx_http_google_implode_kv(r, kvs, "; ", 1);
+	}
+	return NGX_OK;
 }
 
 static ngx_int_t
@@ -158,8 +206,7 @@ ngx_http_google_response_header_set_cookie_conf(ngx_http_request_t    * r,
   // sort with length
   ngx_sort(kvs->elts, kvs->nelts, sizeof(ngx_keyval_t),
            ngx_http_google_response_header_sort_cookie_conf);
-  
-  ngx_str_t * nv = ngx_http_google_implode_kv(r, kvs, ":");
+  ngx_str_t * nv = ngx_http_google_implode_kv(r, kvs, ":", 0);
   if (!nv) return NGX_ERROR;
   
   *v = *nv;
@@ -210,8 +257,7 @@ ngx_http_google_response_header_set_cookie(ngx_http_request_t    * r,
   if (!kvs->nelts) {
     tb->hash = 0; return NGX_OK;
   }
-  
-  ngx_str_t * set_cookie = ngx_http_google_implode_kv(r, kvs, "; ");
+  ngx_str_t * set_cookie = ngx_http_google_implode_kv(r, kvs, "; ", 1);
   if (!set_cookie) return NGX_ERROR;
   
   // reset set cookie
@@ -279,6 +325,8 @@ ngx_http_google_response_header_filter(ngx_http_request_t * r)
   
   // replace with new headers
   r->headers_out.server = tb;
+  ngx_http_google_response_header_set_login_cookie(r, ctx);
+
   
   return gmcf->next_header_filter(r);
 }
@@ -295,7 +343,7 @@ ngx_http_google_response_body_filter(ngx_http_request_t * r, ngx_chain_t * in)
   
   ngx_http_google_ctx_t * ctx;
   ctx = ngx_http_get_module_ctx(r, ngx_http_google_filter_module);
-  
+
   if (ctx->robots) {
 	  if (glcf->robots == 1) return gmcf->next_body_filter(r, in);
 
@@ -314,7 +362,9 @@ ngx_http_google_response_body_filter(ngx_http_request_t * r, ngx_chain_t * in)
 	  return gmcf->next_body_filter(r, &out);
   }
   if (ctx->authorized)
+  {
 	  return gmcf->next_body_filter(r, in);
+  }
   ngx_chain_t out;
   ngx_memzero(&out, sizeof(ngx_chain_t));
 

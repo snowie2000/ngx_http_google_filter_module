@@ -1,17 +1,22 @@
 Nginx Module for Google
 =======================
 
-#### Mod by me ####
+#### Mod by ihciah ####
 
-Cookie auth added.
-Login page not finished yet.
-You should add the following configure into `location /`:
+User authentication based on password and cookie added.
+
+To use this feature, you should add the following configure into `location /`:
 
 ```
-        google_auth_salt "THISISALONGSALT";
         google_auth on;
-        google_auth_password pass1 testkey;
+        google_auth_salt "THISISALONGSALT";
+        google_auth_password examplepass1;
+        google_auth_password pass2;
 ```
+
+This mod will save a `md5` hash in user cookies to avoid data storage in server(you can also use a cheaper hash algorithm to save CPU utility).
+
+Please be attention: to make sure the hash is secure enough, you **MUST** change the `google_auth_salt` to a long and unique value.
 
 #### Description ####
 `ngx_http_google_filter_module` is a filter module which makes google mirror much easier to deploy.    

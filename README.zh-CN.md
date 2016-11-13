@@ -1,16 +1,20 @@
 Nginx Google 扩展
 =================
 
-#### 改动 ####
-添加Cookie验证
-登陆页面尚未完工...
+#### 改动 by ihciah ####
+添加基于Cookie的用户身份验证.
 在配置文件`location /`部分添加以下配置以启用验证功能:
 
 ```
-        google_auth_salt "THISISALONGSALT";
         google_auth on;
-        google_auth_password pass1 testkey;
+        google_auth_salt "THISISALONGSALT";
+        google_auth_password examplepass1;
+        google_auth_password pass2;
 ```
+
+验证模块会将一个生成的`md5`值放入用户`cookie`, 避免掉了在服务端储存数据的麻烦. 当然你也可以替换这个算法为一个更省 CPU 的算法.
+
+请注意: 为了保证算法的安全性, 请**务必**更改 `google_auth_salt` 字段为一个足够长的并且其他人不知道的字符串.
 
 #### 扯两句 ####
 `wen.lu` 一路走到现在, 离不开大家的支持!

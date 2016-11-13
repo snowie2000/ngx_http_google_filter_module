@@ -112,7 +112,8 @@ ngx_http_google_explode_kv(ngx_http_request_t * r,
 ngx_str_t *
 ngx_http_google_implode_kv(ngx_http_request_t * r,
                            ngx_array_t        * a, /* ngx_keyval_t */
-                           const char         * de)
+                           const char         * de,
+                           const ngx_int_t    keep_cookie)
 {
   u_char * buf;
   size_t   len = 0, delen = strlen(de);
@@ -123,24 +124,28 @@ ngx_http_google_implode_kv(ngx_http_request_t * r,
   
   for (i = 0; i < a->nelts; i++) {
     kv   = hd + i;
-    len += kv->key.len + 1 + kv->value.len + delen;
+    len += kv->key.len + kv->value.len + delen + 1;
+	// ngx_http_google_debug(r->pool, "GGDEBUG: %V(%zu) -> %V(%zu)\n", &kv->key, kv->key.len, &kv->value, kv->value.len);
   }
-  
   str = ngx_pcalloc(r->pool, sizeof(ngx_str_t));
   if (!str) return NULL;
-  
   buf = str->data = ngx_pcalloc(r->pool, len);
-  if (!buf) return NULL;
-  
+  if (!buf)
+  {
+	  return NULL;
+  }
   for (i = 0; i < a->nelts; i++) {
     kv = hd + i;
+
 	// Drop specified cookies
-	if (kv->key.len == 2 && 
-		(!ngx_strncasecmp(kv->key.data, (u_char *)"GZ", 2) ||
-		!ngx_strncasecmp(kv->key.data, (u_char *)"AC", 2) ||
-		!ngx_strncasecmp(kv->key.data, (u_char *)"ED", 2) ||
-		!ngx_strncasecmp(kv->key.data, (u_char *)"KI", 2)
-		)
+	if (kv->key.len == 2 && keep_cookie == 0 &&
+		(
+			!ngx_strncasecmp(kv->key.data, (u_char *)"GZ", 2) ||
+			!ngx_strncasecmp(kv->key.data, (u_char *)"AC", 2) ||
+			!ngx_strncasecmp(kv->key.data, (u_char *)"ED", 2) ||
+			!ngx_strncasecmp(kv->key.data, (u_char *)"KI", 2) ||
+			!ngx_strncasecmp(kv->key.data, (u_char *)"PW", 2)
+			)
 		)
 		continue;
     if (buf > str->data) buf = ngx_copy(buf, de, delen);
@@ -148,7 +153,6 @@ ngx_http_google_implode_kv(ngx_http_request_t * r,
     *buf++ = '=';
     buf = ngx_copy(buf, kv->value.data, kv->value.len);
   }
-  
   str->len = buf - str->data;
   return str;
 }
@@ -173,7 +177,7 @@ ngx_http_google_debug(ngx_pool_t * pool, const char * fmt, ...)
 }
 
 ngx_int_t
-ngx_http_google_validate_user(ngx_http_request_t * r, const ngx_int_t keyid, const ngx_uint_t endtime, const ngx_str_t * auth_code)
+ngx_http_google_validate_user(ngx_http_request_t * r, const ngx_int_t keyid, const ngx_uint_t endtime, const ngx_str_t * auth_code, ngx_int_t * rkeyid)
 {
 	/*
 	 * 0: pass
@@ -184,61 +188,62 @@ ngx_http_google_validate_user(ngx_http_request_t * r, const ngx_int_t keyid, con
 	ngx_uint_t now = (ngx_uint_t)time(NULL);
 	if (endtime < now)
 	{
-		ngx_http_google_debug(r->pool, "Time exceeded! %d < %d\n", endtime, now);
+		// ngx_http_google_debug(r->pool, "Time exceeded! %d < %d\n", endtime, now);
 		return 1;
 	}
 	ngx_http_google_loc_conf_t * glcf;
 	glcf = ngx_http_get_module_loc_conf(r, ngx_http_google_filter_module);
 	if (glcf->auth_password == NGX_CONF_UNSET_PTR)
 	{
-		ngx_http_google_debug(r->pool, "Error: auth_password not set.\n");
+		// ngx_http_google_debug(r->pool, "Error: auth_password not set.\n");
 		return 3;
 	}
 	ngx_str_t * hd = glcf->auth_password->elts;
 
-	if (auth_code->len != 32 || (keyid >= 0 && (ngx_uint_t)keyid >= glcf->auth_password->nelts))
+	if (auth_code->len != 32 || (ngx_uint_t)keyid >= glcf->auth_password->nelts)
 	{
 		return 2;
 	}
 	if (keyid < 0)
 	{
-		ngx_uint_t nkeyid;
-		for (nkeyid = 0; nkeyid < glcf->auth_password->nelts; nkeyid++)
-			if (!ngx_http_google_validate_user(r, nkeyid, endtime, auth_code))
+		ngx_int_t nkeyid;
+		for (nkeyid = 0; (ngx_uint_t)nkeyid < glcf->auth_password->nelts; nkeyid++)
+			if (!ngx_http_google_validate_user(r, nkeyid, endtime, auth_code, rkeyid))
 				break;
-		if (nkeyid < glcf->auth_password->nelts)
+		if ((ngx_uint_t)nkeyid < glcf->auth_password->nelts)
 		{
 			// keyid to be set = nkeyid
+			*rkeyid = nkeyid;
 			return 0;
 		}
 		return 2;
 	}
-	ngx_str_t * key = hd + keyid;
+	ngx_str_t * key = hd + (ngx_uint_t)keyid;
 	u_char * buf;
 	ngx_uint_t buf_len = 17 + key->len + glcf->auth_salt.len;
 	buf = ngx_pcalloc(r->pool, buf_len);
 	if (!buf) return 3;
-	ngx_snprintf(buf, 15, "%015d", endtime);
-	ngx_snprintf(buf + 15, key->len, "%s", key->data);
-	ngx_snprintf(buf + 15 + key->len, glcf->auth_salt.len, "%s", glcf->auth_salt.data);
+	ngx_snprintf(buf, 16, "%015d", endtime);
+	ngx_snprintf(buf + 15, key->len + 1, "%s", key->data);
+	ngx_snprintf(buf + 15 + key->len, glcf->auth_salt.len + 1, "%s", glcf->auth_salt.data);
 	buf[15 + key->len + glcf->auth_salt.len] = '\0';
 
 	u_char auth_code_buf[16];
 	MD5(buf, strlen((char *)buf), auth_code_buf);
-	char temp_buf[3]; ngx_uint_t loop;
+	ngx_uint_t loop;
+	static const char hexchars[] = "0123456789abcdef";
 	for(loop = 0; loop < 16; loop++)
 	{
-		snprintf(temp_buf, 3, "%2.2x", auth_code_buf[loop]);
-		if (ngx_memcmp(auth_code->data + loop * 2, temp_buf, 2))
-		{
+		unsigned char b = auth_code_buf[loop];
+		if (auth_code->data[loop * 2] != hexchars[b >> 4] ||
+			auth_code->data[loop * 2 + 1] != hexchars[b & 0xF])
 			return 2;
-		}
 	}
 	return 0;
 }
 
 ngx_int_t
-ngx_http_google_get_validate_token(ngx_http_request_t * r, const ngx_str_t * key, const ngx_uint_t endtime, ngx_str_t * auth_code)
+ngx_http_google_get_validate_token(ngx_http_request_t * r, const ngx_str_t * key, const ngx_uint_t endtime, ngx_uint_t * rkeyid, ngx_str_t * auth_code)
 {
 	/*
 	 * 0: OK
@@ -263,28 +268,30 @@ ngx_http_google_get_validate_token(ngx_http_request_t * r, const ngx_str_t * key
 			break;
 	}
 	if (keyid >= glcf->auth_password->nelts)
-	{
 		return 1;
-	}
-
 	u_char * buf;
-	ngx_uint_t buf_len = 16 + key->len + glcf->auth_salt.len;
+	ngx_uint_t buf_len = 17 + key->len + glcf->auth_salt.len;
 	buf = ngx_pcalloc(r->pool, buf_len);
 	if (!buf) return 2;
-	ngx_snprintf(buf, 15, "%015d", endtime);
-	ngx_snprintf(buf + 15, key->len, "%s", key->data);
-	ngx_snprintf(buf + 15 + key->len, glcf->auth_salt.len, "%s", glcf->auth_salt.data);
+	ngx_snprintf(buf, 16, "%015d", endtime);
+	ngx_snprintf(buf + 15, key->len + 1, "%s", key->data);
+	ngx_snprintf(buf + 15 + key->len, glcf->auth_salt.len + 1, "%s", glcf->auth_salt.data);
+	buf[15 + key->len + glcf->auth_salt.len] = '\0';
 
-	ngx_http_google_debug(r->pool, "Before md5: %s\n", buf);
+	// ngx_http_google_debug(r->pool, "Before md5: %s\n", buf);
 
 	u_char auth_code_buf[16];
-	char string_auth_code_buf[33] = {'\0'};
-	MD5(buf, strlen((char *)buf), auth_code_buf);
+	MD5(buf, 15 + key->len + glcf->auth_salt.len, auth_code_buf);
+	static const char hexchars[] = "0123456789abcdef";
+	auth_code->len = 32;
+	auth_code->data = ngx_pcalloc(r->pool, auth_code->len + 1);
 	ngx_uint_t i;
-	for (i = 0; i < 16; i++)
+	for(i = 0; i < 16; i++)
 	{
-		snprintf(string_auth_code_buf + 2 * i, 3, "%2.2x", auth_code_buf[i]);
+		unsigned char b = auth_code_buf[i];
+		auth_code->data[2 * i] = hexchars[b >> 4];
+		auth_code->data[2 * i + 1] = hexchars[b & 0xF];
 	}
-	ngx_str_set(auth_code, string_auth_code_buf);
+	*rkeyid = keyid;
 	return 0;
 }

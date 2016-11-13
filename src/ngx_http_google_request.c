@@ -29,6 +29,8 @@ ngx_http_google_create_ctx(ngx_http_request_t * r)
   if (!ctx->arg)    return NULL;
   ctx->domain = ngx_pcalloc(r->pool, sizeof(ngx_str_t));
   if (!ctx->domain) return NULL;
+  ctx->cookies_set = ngx_array_create(r->pool, 4, sizeof(ngx_keyval_t));
+  if (!ctx->cookies_set) return NULL;
   
   // default conf key
   ngx_str_set(ctx->conf, "PREF");
@@ -37,6 +39,7 @@ ngx_http_google_create_ctx(ngx_http_request_t * r)
   ctx->host = &r->headers_in.host->value;
   ctx->lang = &glcf->language;
   ctx->type = ngx_http_google_type_main;
+  ctx->authorized = 0;
   
   ngx_str_t domain = *ctx->host;
   
@@ -80,11 +83,13 @@ ngx_http_google_create_ctx(ngx_http_request_t * r)
   if(!glcf->auth_enable)
 	ctx->authorized = 1;
   else {
-	  ngx_http_google_debug(r->pool, "auth enabled.\n");
+	  // ngx_http_google_debug(r->pool, "auth enabled.\n");
 	  ngx_int_t keyid = -1;
 	  ngx_uint_t endtime = 0;
 	  ngx_str_t auth_code;
+	  ngx_str_t password;
 	  ngx_str_set(&auth_code, (u_char *)"");
+	  ngx_str_set(&password, (u_char *)"");
 
 	  // parse cookie
 	  if (r->headers_in.cookies.nelts) {
@@ -95,13 +100,11 @@ ngx_http_google_create_ctx(ngx_http_request_t * r)
 		  ctx->cookies = ngx_array_create(r->pool, 4, sizeof(ngx_keyval_t));
 	  }
 	  if (!ctx->cookies) return NULL;
-
-	  // get cookie
 	  ngx_uint_t i;
 	  ngx_keyval_t * kv, *hd = ctx->cookies->elts;
 	  for (i = 0; i < ctx->cookies->nelts; i++) {
 		  kv = hd + i;
-		  if (kv->key.len > 0) {
+		  if (kv->key.len == 2) {
 			  if (!ngx_strncasecmp(kv->key.data, (u_char *)"GZ", 2))
 			  {
 				  ngx_str_set(&kv->value, "Z=0");
@@ -118,18 +121,73 @@ ngx_http_google_create_ctx(ngx_http_request_t * r)
 			  {
 				  keyid = ngx_atoi(kv->value.data, kv->value.len);
 			  }
+			  else if (!ngx_strncasecmp(kv->key.data, (u_char *)"PW", 2))
+			  {
+				  password = kv->value;
+			  }
 		  }
 	  }
-	  ngx_uint_t auth_result = ngx_http_google_validate_user(r, keyid, endtime, &auth_code);
-	  ngx_http_google_debug(r->pool, "keyid:%d, endtime: %d, auth_code: %V\n", keyid, endtime, &auth_code);
+	  ngx_int_t new_keyid;
+	  ngx_uint_t auth_result = ngx_http_google_validate_user(r, keyid, endtime, &auth_code, &new_keyid);
 	  if (!auth_result) 
 	  {
 		  ctx->authorized = 1;
+		  if(keyid < 0)
+		  {
+			  ngx_keyval_t * kv;
+			  u_char * buf;
+			  kv = ngx_array_push(ctx->cookies_set);
+			  if (!kv) return NULL;
+			  ngx_str_set(&kv->key, "KI");
+			  buf = ngx_pcalloc(r->pool, 16);
+			  if (!buf) return NULL;
+			  kv->value.data = ngx_pcalloc(r->pool, 16);
+			  if (!(kv->value.data)) return NULL;
+			  ngx_snprintf(buf, 16, "%d", new_keyid);
+			  kv->value.len = ngx_cpystrn(kv->value.data, buf, 16) - kv->value.data;
+		  }
 	  }
 	  else
 	  {
 		  ctx->authorized = 0;
-		  ngx_http_google_debug(r->pool, "Auth failed.\n");
+		  // ngx_http_google_debug(r->pool, "Auth failed.\n");
+		  if(ctx->uri->len == 1 &&
+			  !ngx_strncmp(ctx->uri->data, "/", 1))
+		  {
+			  // if password matches, set cookie
+			  ngx_uint_t rkeyid;
+			  ngx_str_t auth_code;
+			  ngx_int_t result = ngx_http_google_get_validate_token(r, &password, endtime, &rkeyid, &auth_code);
+			  if (!result)
+			  {
+				  ngx_keyval_t * kv;
+				  u_char * buf;
+
+				  kv = ngx_array_push(ctx->cookies_set);
+				  if (!kv) return NULL;
+				  ngx_str_set(&kv->key, "KI");
+				  buf = ngx_pcalloc(r->pool, 16);
+				  if (!buf) return NULL;
+				  kv->value.data = ngx_pcalloc(r->pool, 16);
+				  if (!(kv->value.data)) return NULL;
+				  ngx_snprintf(buf, 16, "%d", (ngx_int_t)rkeyid);
+				  kv->value.len = ngx_cpystrn(kv->value.data, buf, 16) - kv->value.data;
+
+				  kv = ngx_array_push(ctx->cookies_set);
+				  if (!kv) return NULL;
+				  ngx_str_set(&kv->key, "AC");
+				  kv->value.len = auth_code.len;
+				  kv->value.data = ngx_pcalloc(r->pool, kv->value.len + 1);
+				  if (!(kv->value.data)) return NULL;
+				  ngx_cpystrn(kv->value.data, auth_code.data, auth_code.len + 1);
+
+				  kv = ngx_array_push(ctx->cookies_set);
+				  if (!kv) return NULL;
+				  ngx_str_set(&kv->key, "PW");
+				  ngx_str_set(&kv->value, "");
+				  ctx->authorized = 1;
+			  }
+		  }
 	  }
   }
   return ctx;
@@ -436,29 +494,25 @@ ngx_http_google_request_generater(ngx_http_request_t    * r,
   ngx_uint_t i;
   ngx_table_elt_t *  tb;
   ngx_table_elt_t ** ptr;
-  
-  ngx_str_t * cookie = ngx_http_google_implode_kv(r, ctx->cookies, "; ");
+  ngx_str_t * cookie = ngx_http_google_implode_kv(r, ctx->cookies, "; ", 0);
   if (!cookie) return NGX_ERROR;
   
   if (!r->headers_in.cookies.nelts)
   {
     tb = ngx_list_push(&r->headers_in.headers);
     if (!tb) return NGX_ERROR;
-    
     ngx_str_set(&tb->key, "Cookie");
     tb->value = *cookie;
     tb->hash  = ngx_hash_key_lc(tb->key.data, tb->key.len);
-    
-  } else {
-    
+  }
+  else 
+  {
     ptr = r->headers_in.cookies.elts;
     for (i = 0; i < r->headers_in.cookies.nelts; i++) {
       ptr[i]->value = *cookie;
     }
-    
   }
-  
-  ngx_str_t * arg = ngx_http_google_implode_kv(r, ctx->args, "&");
+  ngx_str_t * arg = ngx_http_google_implode_kv(r, ctx->args, "&", 0);
   if (!arg) return NGX_ERROR;
   ctx->arg = arg;
   
@@ -467,7 +521,6 @@ ngx_http_google_request_generater(ngx_http_request_t    * r,
     r->unparsed_uri = *ctx->uri;
     
   } else {
-    
     ngx_str_t uri;
     uri.len  = ctx->uri->len + 1 + ctx->arg->len;
     uri.data = ngx_pcalloc(r->pool, uri.len);
