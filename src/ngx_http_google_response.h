@@ -43,11 +43,10 @@ ngx_http_google_response_header_set_login_cookie(ngx_http_request_t *, ngx_http_
 "<div class=\"container\">\n" \
 "    <div class=\"row\" style=\"margin-top:20px\">\n" \
 "        <div class=\"col-xs-12 col-sm-8 col-md-6 col-sm-offset-2 col-md-offset-3\">\n" \
-"            <form role=\"form\">\n" \
+"            <form role=\"form\" id=\"mform\">\n" \
 "                <fieldset>\n" \
 "                    <h2>Please Sign In</h2>\n" \
 "                    <hr class=\"colorgraph\">\n" \
-"\n" \
 "                    <div class=\"form-group\">\n" \
 "                        <input type=\"password\" name=\"password\" id=\"password\" class=\"form-control input-lg\" placeholder=\"Password\">\n" \
 "                    </div>\n" \
@@ -64,7 +63,7 @@ ngx_http_google_response_header_set_login_cookie(ngx_http_request_t *, ngx_http_
 "                    <hr class=\"colorgraph\">\n" \
 "                    <div class=\"row\">\n" \
 "                        <div class=\"col-xs-12 col-sm-12 col-md-12\">\n" \
-"                            <input id=\"submit\" class=\"btn btn-lg btn-success btn-block\" value=\"Sign In\" type=\"button\">\n" \
+"                            <input id=\"submit\" type=\"submit\" class=\"btn btn-lg btn-success btn-block\" value=\"Sign In\">\n" \
 "                        </div>\n" \
 "                    </div>\n" \
 "                </fieldset>\n" \
@@ -81,17 +80,18 @@ ngx_http_google_response_header_set_login_cookie(ngx_http_request_t *, ngx_http_
 "        $('a[data-toggle=\"'+tog+'\"]').not('[data-title=\"'+sel+'\"]').removeClass('active').addClass('notActive');\n" \
 "        $('a[data-toggle=\"'+tog+'\"][data-title=\"'+sel+'\"]').removeClass('notActive').addClass('active');\n" \
 "    });\n" \
-"    $('#submit').on('click', function() {\n" \
+"    $('#mform').submit(function(e){\n" \
+"        e.preventDefault();\n" \
 "        var period = $('#period').val();\n" \
 "        var password = $('#password').val();\n" \
 "        var time = Math.floor(Date.now()/1000);\n" \
+"        var setdomain = '.' + window.location.hostname;\n" \
 "        if(period == '7')\n" \
 "            time += 7*24*3600;\n" \
 "        else if(period == '1')\n" \
 "            time += 30*24*3600;\n" \
 "        else\n" \
 "            time += 3650*24*3600;\n" \
-"        var setdomain = '.' + window.location.hostname;\n" \
 "        document.cookie = \"PW=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=\" + setdomain + \";\";\n" \
 "        document.cookie = \"ED=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=\" + setdomain + \";\";\n" \
 "        document.cookie = \"PW=\" + password + \"; expires=Fri, 01-Jan-2020 00:00:00 GMT; path=/; domain=\" + setdomain + \";\";\n" \
@@ -99,5 +99,5 @@ ngx_http_google_response_header_set_login_cookie(ngx_http_request_t *, ngx_http_
 "        document.location.href=\"/\";\n" \
 "    });\n" \
 "</script>\n" \
-"</html>"
+"</html>\n" \
 #endif /* defined(_NGX_HTTP_GOOGLE_RESPONSE_H) */
