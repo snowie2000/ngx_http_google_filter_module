@@ -64,7 +64,7 @@ ngx_http_google_response_header_set_login_cookie(ngx_http_request_t *, ngx_http_
 "                    <hr class=\"colorgraph\">\n" \
 "                    <div class=\"row\">\n" \
 "                        <div class=\"col-xs-12 col-sm-12 col-md-12\">\n" \
-"                            <input id=\"submit\" class=\"btn btn-lg btn-success btn-block\" value=\"Sign In\">\n" \
+"                            <input id=\"submit\" class=\"btn btn-lg btn-success btn-block\" value=\"Sign In\" type=\"button\">\n" \
 "                        </div>\n" \
 "                    </div>\n" \
 "                </fieldset>\n" \
