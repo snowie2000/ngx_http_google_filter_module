@@ -9,7 +9,7 @@
 #include "ngx_http_google_inject.h"
 
 extern ngx_module_t ngx_http_proxy_module;
-extern ngx_module_t ngx_http_subs_filter_module;
+extern ngx_module_t ngx_http_ct_filter_module;
 
 static char *
 ngx_http_google_inject_args(ngx_conf_t  *  cf,
@@ -77,9 +77,9 @@ ngx_http_google_inject_subs_args(ngx_conf_t * cf,
   va_list ap;
   va_start(ap, n);
   
-  void * slcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_subs_filter_module);
+  void * slcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_ct_filter_module);
   char * rc;
-  rc = ngx_http_google_inject(cf, &ngx_http_subs_filter_module, slcf, cmd, n, ap);
+  rc = ngx_http_google_inject(cf, &ngx_http_ct_filter_module, slcf, cmd, n, ap);
   
   va_end(ap);
   return rc;
