@@ -145,7 +145,7 @@ ngx_http_google_response_header_set_login_cookie(ngx_http_request_t * r, ngx_htt
 		ikv->key = kv->key; ikv->value = kv->value;
 		ikv = ngx_array_push(kvs);
 		if (!ikv) return NGX_ERROR;
-		ngx_str_set(&ikv->key, "expires");
+		/*ngx_str_set(&ikv->key, "expires");
 		if (kv->key.len == 2 && !ngx_strncasecmp(kv->key.data, (u_char *)"PW", 2))
 		{
 			ngx_str_set(&ikv->value, "Mon, 01-Jan-1990 00:00:00 GMT");
@@ -155,7 +155,7 @@ ngx_http_google_response_header_set_login_cookie(ngx_http_request_t * r, ngx_htt
 			ngx_str_set(&ikv->value, "Fri, 01-Jan-2020 00:00:00 GMT");
 		}
 		ikv = ngx_array_push(kvs);
-		if (!ikv) return NGX_ERROR;
+		if (!ikv) return NGX_ERROR;*/
 		ngx_str_set(&ikv->key, "path");
 		ngx_str_set(&ikv->value, "/");
 
